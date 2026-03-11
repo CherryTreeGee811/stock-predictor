@@ -66,9 +66,17 @@ pip install -r requirements.txt
 
 > **Note:** FinBERT (`ProsusAI/finbert`) downloads automatically from HuggingFace on first run (~400 MB). After that it runs fully offline.
 
-### 2. Add your API key
+### 2. Configure your environment file
 
-Sign up for a free key at [https://newsapi.org](https://newsapi.org), then add it to the `.env` file:
+Copy the example environment file and add your API key:
+
+```bash
+cp .env.example .env
+```
+
+> **Important:** You **must** create a `.env` file with a valid `NEWS_API_KEY` before running anything. The sentiment pipeline will fail without it.
+
+Sign up for a free key at [https://newsapi.org](https://newsapi.org), then edit `.env`:
 
 ```
 NEWS_API_KEY=your_actual_key_here
