@@ -28,10 +28,10 @@ data:
     - "JPM"
     - "V"
     - "JNJ"
-    - "^GSPC"    # S&P 500 index (broad market)
-    - "XOM"      # ExxonMobil (energy sector)
-    - "GLD"      # Gold ETF (safe haven asset)
-    - "WMT"      # Walmart (consumer defensive)
+    - "^GSPC"
+    - "XOM"     
+    - "GLD"      
+    - "WMT"     
 
 # ------ Technical Indicators ------
 indicators:

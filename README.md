@@ -169,11 +169,3 @@ stock-predictor/
 5. **This is not financial advice and should not be used for real trading decisions.**
 
 ---
-
-## Technical Details
-
-- **Data split:** 80% train / 10% validation / 10% test — chronological, never shuffled
-- **Scalers:** StandardScaler for Logistic Regression & XGBoost; MinMaxScaler(0,1) for LSTM — always fit on training data only
-- **LSTM input:** sequences of 60 trading days × all features
-- **XGBoost tuning:** GridSearchCV with TimeSeriesSplit (not regular KFold)
-- **One generalized model** trained across 10 major tickers (AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA, META, JPM, V, JNJ)
