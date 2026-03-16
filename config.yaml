@@ -23,15 +23,6 @@ data:
     - "GOOGL"
     - "AMZN"
     - "TSLA"
-    - "NVDA"
-    - "META"
-    - "JPM"
-    - "V"
-    - "JNJ"
-    - "^GSPC"
-    - "XOM"     
-    - "GLD"      
-    - "WMT"     
 
 # ------ Technical Indicators ------
 indicators:
