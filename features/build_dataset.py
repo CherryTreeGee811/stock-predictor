@@ -1,16 +1,7 @@
 """
-Merge price features and sentiment into a single training DataFrame.
+Merge price features into a single training DataFrame.
 
-Orchestrates the full dataset build:
-  1. Loop through all training_tickers from config.yaml
-  2. For each ticker: fetch price data (full history), compute indicators
-  3. Fetch available news (last ~30 days due to free-tier limit),
-     compute sentiment for those days; backfill everything else with 0.0
-  4. Add Day_of_Week, Month columns (already from indicators)
-  5. Create target columns: Direction and Next_Close
-  6. Drop the last row per ticker (no target available)
-  7. Concatenate all tickers into one DataFrame
-  8. Save to data/cache/training_dataset.csv
+No sentiment column is added – only technical indicators are used.
 """
 
 import os
@@ -27,54 +18,16 @@ _PROJECT_ROOT = os.path.dirname(_THIS_DIR)
 _CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config.yaml")
 _CACHE_DIR = os.path.join(_PROJECT_ROOT, "data", "cache")
 
-# Make sure project root is on sys.path so sibling packages import cleanly
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from data.fetch_price import fetch_price_data
-from data.fetch_news import fetch_news_headlines, group_headlines_by_date
 from features.technical_indicators import compute_indicators
-from features.sentiment import compute_daily_sentiment
 
 
 def _load_config() -> dict:
     with open(_CONFIG_PATH, "r") as f:
         return yaml.safe_load(f)
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-def _build_sentiment_column(df: pd.DataFrame, ticker: str,
-                            news_lookback: int,
-                            default_score: float) -> pd.Series:
-    """
-    Build a Daily_Sentiment Series aligned to *df*'s DatetimeIndex.
-
-    Only the most recent *news_lookback* days can have real scores
-    (NewsAPI free-tier limit). All older dates get *default_score*.
-    """
-    # Fetch whatever headlines NewsAPI can provide
-    headlines_list = fetch_news_headlines(ticker, lookback_days=news_lookback)
-    by_date = group_headlines_by_date(headlines_list)  # {date_str: [headlines]}
-
-    # Score each day that has headlines
-    daily_scores: dict[str, float] = {}
-    for date_str, titles in by_date.items():
-        daily_scores[date_str] = compute_daily_sentiment(titles)
-
-    # Map scores onto the DataFrame index
-    sentiment = pd.Series(default_score, index=df.index, name="Daily_Sentiment")
-    for date_str, score in daily_scores.items():
-        try:
-            dt = pd.Timestamp(date_str)
-            if dt in sentiment.index:
-                sentiment.loc[dt] = score
-        except Exception:
-            continue
-
-    return sentiment
 
 
 def _add_targets(df: pd.DataFrame) -> pd.DataFrame:
@@ -87,39 +40,18 @@ def _add_targets(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["Next_Close"] = df["Close"].shift(-1)
     df["Direction"] = (df["Next_Close"] > df["Close"]).astype(int)
-
-    # Percentage change target — scale-independent across tickers
     df["Pct_Change"] = (df["Next_Close"] - df["Close"]) / df["Close"] * 100
-
-    # Drop the final row where targets are NaN
     df = df.iloc[:-1]
     return df
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
 def build_training_dataset(save: bool = True) -> pd.DataFrame:
     """
     Build the combined training dataset for all tickers in config.
-
-    Parameters
-    ----------
-    save : bool
-        If True, save the result to data/cache/training_dataset.csv.
-
-    Returns
-    -------
-    pd.DataFrame
-        Columns: all features + Daily_Sentiment + Direction + Next_Close +
-                 a "Ticker" column identifying the source ticker.
+    No sentiment column is included.
     """
     cfg = _load_config()
     tickers = cfg["data"]["training_tickers"]
-    default_sentiment = cfg["sentiment"]["default_score"]
-    # NewsAPI free tier: ~30 days max history
-    news_lookback = 30
 
     all_frames: list[pd.DataFrame] = []
 
@@ -141,19 +73,10 @@ def build_training_dataset(save: bool = True) -> pd.DataFrame:
                   "indicator warm-up.")
             continue
 
-        # 3. Sentiment column
-        print(f"[build_dataset] Building sentiment for {ticker}…")
-        sentiment = _build_sentiment_column(
-            feat_df, ticker,
-            news_lookback=news_lookback,
-            default_score=default_sentiment,
-        )
-        feat_df["Daily_Sentiment"] = sentiment.values
-
-        # 4. Target columns + drop last row
+        # 3. Target columns + drop last row
         feat_df = _add_targets(feat_df)
 
-        # 5. Tag with ticker symbol
+        # 4. Tag with ticker symbol
         feat_df["Ticker"] = ticker
 
         print(f"[build_dataset] {ticker}: {len(feat_df)} rows ready.")
@@ -185,9 +108,6 @@ def build_training_dataset(save: bool = True) -> pd.DataFrame:
     return combined
 
 
-# ---------------------------------------------------------------------------
-# Quick CLI entry point
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     dataset = build_training_dataset(save=True)
     if not dataset.empty:
