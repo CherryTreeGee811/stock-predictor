@@ -21,8 +21,6 @@ data:
     - "AAPL"
     - "MSFT"
     - "GOOGL"
-    - "AMZN"
-    - "TSLA"
 
 # ------ Technical Indicators ------
 indicators:
@@ -52,20 +50,20 @@ xgboost:
   random_state: 42
   # Grid search parameter space
   grid_search:
-    n_estimators: [100, 200]
-    max_depth: [3, 4]
-    learning_rate: [0.01, 0.05]
+    n_estimators: [100]
+    max_depth: [3]
+    learning_rate: [0.01]
   cv_folds: 5
 
 # ------ Model: LSTM ------
 lstm:
-  sequence_length: 60       # Number of past trading days per sample
-  lstm_units_1: 128
-  lstm_units_2: 64
+  sequence_length: 30       # Number of past trading days per sample
+  lstm_units_1: 64
+  lstm_units_2: 32
   dropout_rate: 0.2
-  dense_units: 32
-  epochs: 100
-  batch_size: 64
+  dense_units: 16
+  epochs: 30
+  batch_size: 128
   early_stopping_patience: 10
   optimizer: "adam"
   loss: "binary_crossentropy"
