@@ -45,17 +45,6 @@ indicators:
   lag_close_days: 10      # Lag_Close_1 through Lag_Close_10
   lag_volume_days: 5      # Lag_Volume_1 through Lag_Volume_5
 
-# ------ Sentiment Analysis ------
-sentiment:
-  # HuggingFace model identifier for FinBERT
-  model_name: "ProsusAI/finbert"
-
-  # Default sentiment score when no news is available for a day
-  default_score: 0.0
-
-  # Maximum number of headlines to process per day (to limit compute)
-  max_headlines_per_day: 20
-
 # ------ Data Split (chronological, never shuffled) ------
 split:
   train_ratio: 0.80
