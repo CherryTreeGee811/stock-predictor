@@ -2,38 +2,33 @@
 # Install with: pip install -r requirements.txt
 
 # --- Data fetching ---
-yfinance>=0.2.50
-requests==2.31.0
+yfinance
 
 # --- Data processing ---
-pandas==2.2.1
-numpy==1.26.4
+pandas
+numpy
 
 # --- Technical indicators (manual computation, no extra lib needed) ---
 
-# --- Sentiment analysis (FinBERT) ---
-transformers==4.38.2
-torch==2.2.1
-
 # --- Traditional ML ---
-scikit-learn==1.4.1.post1
-xgboost==2.0.3
+scikit-learn
+xgboost
 
 # --- Deep learning (LSTM) ---
-tensorflow==2.16.1
+tensorflow
 
 # --- Hyperparameter tuning (included in scikit-learn) ---
 
 # --- Visualization ---
-matplotlib==3.8.3
-seaborn==0.13.2
+matplotlib
+seaborn
 
 # --- Configuration ---
-pyyaml==6.0.1
-python-dotenv==1.0.1
+pyyaml
+python-dotenv
 
 # --- CLI / App ---
 # (no extra dependency — uses built-in input() or argparse)
 
 # --- Notebook (optional, for exploration.ipynb) ---
-jupyterlab==4.1.2
+jupyterlab
