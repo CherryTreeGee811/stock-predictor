@@ -1,6 +1,6 @@
 # Stock Price Prediction Engine
 
-A machine learning system that predicts whether a stock's price will move **UP or DOWN** the next trading day, along with an approximate closing price. It combines technical indicators from historical OHLCV data, VIX volatility index, and real-time news sentiment analysis powered by FinBERT — all running locally with zero paid API costs.
+A machine learning system that predicts whether a stock's price will move **UP or DOWN** the next trading day, along with an approximate closing price. It combines technical indicators from historical OHLCV data, VIX volatility index — all running locally with zero paid API costs.
 
 ---
 
@@ -11,22 +11,22 @@ A machine learning system that predicts whether a stock's price will move **UP o
                         │           DATA SOURCES                   │
                         └──────────────────────────────────────────┘
 
-    yfinance (OHLCV)          NewsAPI (Headlines)         yfinance (^VIX)
-         │                          │                          │
-         ▼                          ▼                          │
-  ┌─────────────┐          ┌───────────────┐                   │
-  │ Technical   │          │   FinBERT     │                   │
-  │ Indicators  │          │  (Sentiment)  │                   │
-  │ SMA, EMA,   │          │  ProsusAI/    │                   │
-  │ RSI, MACD,  │          │  finbert      │                   │
-  │ BB, ATR,    │          │  (local)      │                   │
-  │ OBV, Lags   │          └──────┬────────┘                   │
-  └──────┬──────┘                 │                            │
-         │                        │                            │
-         ▼                        ▼                            ▼
+    yfinance (OHLCV)                                    yfinance (^VIX)
+         │                                                     │
+         ▼                                                     │
+  ┌─────────────┐                                              │
+  │ Technical   │                                              │
+  │ Indicators  │                                              │
+  │ SMA, EMA,   │                                              │
+  │ RSI, MACD,  │                                              │
+  │ BB, ATR,    │                                              │
+  │ OBV, Lags   │                                              │
+  └──────┬──────┘                                              │
+         │                                                     │
+         ▼                                                     ▼
   ┌────────────────────────────────────────────────────────────────┐
   │                    COMBINED FEATURE VECTOR                     │
-  │   30+ features per trading day including sentiment + VIX       │
+  │   30+ features per trading day                                 │
   └────────────────────────────┬───────────────────────────────────┘
                                │
               ┌────────────────┼────────────────┐
@@ -64,33 +64,15 @@ A machine learning system that predicts whether a stock's price will move **UP o
 pip install -r requirements.txt
 ```
 
-> **Note:** FinBERT (`ProsusAI/finbert`) downloads automatically from HuggingFace on first run (~400 MB). After that it runs fully offline.
-
-### 2. Configure your environment file
-
-Copy the example environment file and add your API key:
-
-```bash
-cp .env.example .env
-```
-
-> **Important:** You **must** create a `.env` file with a valid `NEWS_API_KEY` before running anything. The sentiment pipeline will fail without it.
-
-Sign up for a free key at [https://newsapi.org](https://newsapi.org), then edit `.env`:
-
-```
-NEWS_API_KEY=your_actual_key_here
-```
-
-### 3. Build the training dataset
+### 2. Build the training dataset
 
 ```bash
 python features/build_dataset.py
 ```
 
-This fetches historical data for 10 tickers, computes all indicators and sentiment, and saves `data/cache/training_dataset.csv`.
+This fetches historical data for 5 tickers, computes all indicators, and saves `data/cache/training_dataset.csv`.
 
-### 4. Train all models
+### 3. Train all models
 
 ```bash
 python models/train.py
@@ -98,7 +80,7 @@ python models/train.py
 
 Trains Logistic Regression, XGBoost (with GridSearchCV + TimeSeriesSplit), and LSTM. All models and scalers are saved to `models/saved/`.
 
-### 5. Evaluate models
+### 4. Evaluate models
 
 ```bash
 python models/evaluate.py
@@ -109,7 +91,7 @@ Prints accuracy, precision, recall, F1, directional accuracy, MAE, RMSE, MAPE, a
 - `feature_importance.png` — top 20 features driving XGBoost decisions
 - `model_comparison.png` — side-by-side metric comparison table
 
-### 6. Run a prediction
+### 5. Run a prediction
 
 ```bash
 python app/main.py AAPL
@@ -168,12 +150,10 @@ stock-predictor/
 
 1. **Stock prices are partially random.** This model targets directional accuracy above 50%, not perfect price prediction.
 
-2. **News sentiment history is limited by the free NewsAPI tier.** Training data uses neutral sentiment (0.0) as a proxy for missing historical news. Only the most recent ~30 days have real sentiment scores.
+2. **The model cannot react to brand-new event types it has never seen in training.** VIX and sentiment scores serve as indirect proxies for geopolitical and macro shocks.
 
-3. **The model cannot react to brand-new event types it has never seen in training.** VIX and sentiment scores serve as indirect proxies for geopolitical and macro shocks.
+3. **Look-ahead bias is deliberately avoided throughout.** All features for day T use only data from day T and earlier (Close lags use T−1 through T−10).
 
-4. **Look-ahead bias is deliberately avoided throughout.** All features for day T use only data from day T and earlier (Close lags use T−1 through T−10).
-
-5. **This is not financial advice and should not be used for real trading decisions.**
+4. **This is not financial advice and should not be used for real trading decisions.**
 
 ---
