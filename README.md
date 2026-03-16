@@ -70,7 +70,7 @@ pip install -r requirements.txt
 python features/build_dataset.py
 ```
 
-This fetches historical data for 5 tickers, computes all indicators, and saves `data/cache/training_dataset.csv`.
+This fetches historical data for 3 tickers, computes all indicators, and saves `data/cache/training_dataset.csv`.
 
 ### 3. Train all models
 
