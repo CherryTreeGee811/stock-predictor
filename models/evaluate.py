@@ -18,11 +18,6 @@ import numpy as np
 import pandas as pd
 import yaml
 
-import matplotlib
-matplotlib.use("Agg")  # non-interactive backend — works on headless machines
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     confusion_matrix, mean_absolute_error, mean_squared_error,
@@ -121,87 +116,6 @@ def _create_sequences(X: np.ndarray, y: np.ndarray, seq_len: int):
 
 
 # ---------------------------------------------------------------------------
-# Visualisations
-# ---------------------------------------------------------------------------
-
-def _plot_predicted_vs_actual(y_true, y_pred, dates, chart_dir: str):
-    """Chart 1: Predicted vs Actual closing price (line chart)."""
-    fig, ax = plt.subplots(figsize=(14, 5))
-    ax.plot(dates, y_true, label="Actual Close", linewidth=1.2)
-    ax.plot(dates, y_pred, label="Predicted Close", linewidth=1.2, alpha=0.8)
-    ax.set_title("XGBoost Regressor — Predicted vs Actual Closing Price (Test Set)")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Price ($)")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-    path = os.path.join(chart_dir, "predicted_vs_actual.png")
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    print(f"  Chart saved → {path}")
-
-
-def _plot_feature_importance(model, feature_names, chart_dir: str, top_n: int = 20):
-    """Chart 2: XGBoost feature importance bar chart."""
-    importance = model.feature_importances_
-    idx = np.argsort(importance)[::-1][:top_n]
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x=importance[idx], y=[feature_names[i] for i in idx],
-                ax=ax, palette="viridis")
-    ax.set_title(f"XGBoost — Top {top_n} Feature Importances")
-    ax.set_xlabel("Importance")
-    fig.tight_layout()
-    path = os.path.join(chart_dir, "feature_importance.png")
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    print(f"  Chart saved → {path}")
-
-
-def _plot_comparison_table(metrics_dict: dict, chart_dir: str):
-    """
-    Chart 3: Model comparison table rendered as an image.
-
-    metrics_dict structure:
-        { "Logistic Regression": {metric: value, ...},
-          "XGBoost Classifier":  {...},
-          "LSTM":                {...} }
-    """
-    df = pd.DataFrame(metrics_dict).T  # rows = models, cols = metrics
-    df = df.fillna("—")
-
-    fig, ax = plt.subplots(figsize=(12, 3))
-    ax.axis("off")
-    ax.set_title("Model Comparison — Test Set Metrics", fontsize=14, pad=12)
-
-    table = ax.table(
-        cellText=df.values,
-        colLabels=df.columns,
-        rowLabels=df.index,
-        cellLoc="center",
-        loc="center",
-    )
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1.2, 1.6)
-
-    # Style header row
-    for (row, col), cell in table.get_celld().items():
-        if row == 0:
-            cell.set_facecolor("#4472C4")
-            cell.set_text_props(color="white", fontweight="bold")
-        elif col == -1:
-            cell.set_facecolor("#D9E2F3")
-            cell.set_text_props(fontweight="bold")
-
-    fig.tight_layout()
-    path = os.path.join(chart_dir, "model_comparison.png")
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  Chart saved → {path}")
-
-
-# ---------------------------------------------------------------------------
 # Main evaluation orchestrator
 # ---------------------------------------------------------------------------
 
@@ -296,28 +210,6 @@ def evaluate_all():
     else:
         print("  WARNING: Not enough test data to form LSTM sequences.")
         all_metrics["LSTM"] = {}
-
-    # =================================================================
-    # Generate charts
-    # =================================================================
-    print("\n" + "=" * 60)
-    print("[evaluate] Generating charts…")
-    print("=" * 60)
-
-    # Chart 1 — Predicted vs Actual price
-    _plot_predicted_vs_actual(y_test_reg, y_pred_xgb_reg, test_dates, chart_dir)
-
-    # Chart 2 — Feature importance
-    _plot_feature_importance(xgb_clf, feature_cols, chart_dir)
-
-    # Chart 3 — Model comparison table
-    # Merge classification + regression into one combined view
-    comparison = {}
-    for name, m in all_metrics.items():
-        comparison[name] = {**m}
-    # Add regression metrics to the XGBoost row
-    comparison["XGBoost Classifier"].update(reg_metrics)
-    _plot_comparison_table(comparison, chart_dir)
 
     # =================================================================
     # Print final summary

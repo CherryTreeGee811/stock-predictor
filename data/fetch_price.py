@@ -106,7 +106,7 @@ def fetch_price_data(ticker: str, mode: str = "training",
     Parameters
     ----------
     ticker : str
-        Stock ticker symbol (e.g. "AAPL", "NVDA").
+        Stock ticker symbol (e.g. "AAPL", "MSFT").
     mode : str
         "training"   → download full history (period="max").
         "prediction" → download the last N calendar days so that
