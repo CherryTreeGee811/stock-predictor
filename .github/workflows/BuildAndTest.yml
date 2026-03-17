@@ -52,7 +52,7 @@ jobs:
         fi
         
     - name: Push Docker Images to DockerHub
-      if: ${{ github.ref == 'refs/heads/stable' }}
+      if: ${{ github.ref == 'refs/heads/main' }}
       shell: bash
       run: |
         docker tag stockpredictor cherrytree811/stock-predictor:latest
