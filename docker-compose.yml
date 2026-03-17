@@ -1,6 +1,7 @@
 services:
   stock-predictor-api:
     build: .
+    image: stock-predictor
     container_name: stock-predictor
     ports:
       - "5000:5000"
