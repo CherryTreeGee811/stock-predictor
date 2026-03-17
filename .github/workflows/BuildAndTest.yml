@@ -19,6 +19,7 @@ jobs:
         docker compose up -d
 
     - name: Wait for API and perform health check
+      shell: bash
       run: |
         echo "Waiting for API to be ready..."
         for i in {1..30}; do
@@ -38,8 +39,18 @@ jobs:
         else
           echo "✅ Health check passed."
         fi
-      shell: bash
 
+    - name: Test prediction endpoint
+      shell: bash
+      run: |
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:5000/predict?ticker=AAPL")
+        if [ "$HTTP_STATUS" -eq 200 ]; then
+          echo "✅ /predict returned 200 OK"
+        else
+          echo "❌ /predict returned $HTTP_STATUS"
+          exit 1
+        fi
+        
     - name: Push Docker Images to DockerHub
       if: ${{ github.ref == 'refs/heads/stable' }}
       shell: bash
