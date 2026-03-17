@@ -39,3 +39,11 @@ jobs:
           echo "✅ Health check passed."
         fi
       shell: bash
+
+    - name: Push Docker Images to DockerHub
+      if: ${{ github.ref == 'refs/heads/stable' }}
+      shell: bash
+      run: |
+        docker tag stockpredictor cherrytree811/stock-predictor:latest
+        docker login -u cherrytree811 -p ${{ secrets.DOCKER_CRED }}
+        docker push cherrytree811/stock-predictor:latest
