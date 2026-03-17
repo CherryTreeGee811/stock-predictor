@@ -55,6 +55,6 @@ jobs:
       if: ${{ github.ref == 'refs/heads/main' }}
       shell: bash
       run: |
-        docker tag stockpredictor cherrytree811/stock-predictor:latest
+        docker tag stock-predictor cherrytree811/stock-predictor:latest
         docker login -u cherrytree811 -p ${{ secrets.DOCKER_CRED }}
         docker push cherrytree811/stock-predictor:latest
