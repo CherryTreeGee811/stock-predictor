@@ -20,7 +20,3 @@ pyyaml
 
 # --- API ---
 flask
-
-# --- Create Executable ---
-pyinstaller
-staticx
