@@ -8,8 +8,6 @@ yfinance
 pandas
 numpy
 
-# --- Technical indicators (manual computation, no extra lib needed) ---
-
 # --- Traditional ML ---
 scikit-learn
 xgboost
@@ -17,18 +15,12 @@ xgboost
 # --- Deep learning (LSTM) ---
 tensorflow
 
-# --- Hyperparameter tuning (included in scikit-learn) ---
-
-# --- Visualization ---
-matplotlib
-seaborn
-
 # --- Configuration ---
 pyyaml
-python-dotenv
 
-# --- CLI / App ---
-# (no extra dependency — uses built-in input() or argparse)
+# --- API ---
+flask
 
-# --- Notebook (optional, for exploration.ipynb) ---
-jupyterlab
+# --- Create Executable ---
+pyinstaller
+staticx
