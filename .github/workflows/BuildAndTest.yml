@@ -50,7 +50,12 @@ jobs:
           echo "❌ /predict returned $HTTP_STATUS"
           exit 1
         fi
-        
+    
+    - name: Stop and Remove API Container
+      shell: bash
+      run: |
+        docker rm -f stock-predictor
+
     - name: Push Docker Images to DockerHub
       if: ${{ github.ref == 'refs/heads/main' }}
       shell: bash
