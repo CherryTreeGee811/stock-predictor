@@ -13,25 +13,29 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - name: Set up Python 3.13
-      uses: actions/setup-python@v6
-      with: 
-        python-version: 3.13
-    
-    - name: Setup Venv
+    - name: Run Application
       shell: bash
-      run: |
-        python3 -m venv .venv
+      run: 
+        docker compose up -d
 
-    - name: Install dependencies
-      shell: bash
+    - name: Wait for API and perform health check
       run: |
-        source ./.venv/bin/activate
-        python3 -m pip install --upgrade pip
-        pip3 install -r requirements.txt
+        echo "Waiting for API to be ready..."
+        for i in {1..30}; do
+          if curl -s --fail http://localhost:5000/health > /dev/null; then
+            echo "API is responding with HTTP 200"
+            break
+          fi
+          echo "Attempt $i/30: API not ready yet..."
+          sleep 2
+        done
     
-    - name: Prepare For Predictions
+        # Fetch the actual response and compare
+        RESPONSE=$(curl -s http://localhost:5000/health)
+        if [ "$RESPONSE" != '{"status":"ok"}' ]; then
+          echo "❌ Health check failed. Expected '{\"status\":\"ok\"}', got: $RESPONSE"
+          exit 1
+        else
+          echo "✅ Health check passed."
+        fi
       shell: bash
-      run: |
-        source ./.venv/bin/activate
-        python3 run_pipeline.py
