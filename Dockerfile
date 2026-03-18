@@ -3,8 +3,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-RUN python run_pipeline.py
+RUN python features/build_dataset.py
 RUN python models/train.py
+RUN python models/evaluate.py
+RUN python app/main.py AAPL
 
 FROM python:3.13-slim-trixie AS final
 WORKDIR /app
