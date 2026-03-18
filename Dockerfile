@@ -16,7 +16,7 @@ RUN mkdir -p ./features
 RUN mkdir -p ./app
 COPY --from=builder /app/config.yaml .
 COPY --from=builder /app/data/fetch_price.py ./data
-COPY --from=builder /app/data/cache/training_dataset.csv ./data/cache
+COPY --from=builder /app/data/cache ./data/cache
 COPY --from=builder /app/models/saved ./models/saved
 COPY --from=builder /app/models/predict.py ./models/
 COPY --from=builder /app/app/main.py ./app
