@@ -29,7 +29,6 @@ from features.technical_indicators import compute_indicators
 from models.predict import (
     predict_xgboost,
     get_feature_columns,
-    load_lstm_and_predict,
 )
 
 # ---------------------------------------------------------------------------
@@ -45,7 +44,6 @@ try:
 except Exception as e:
     print(f"Error loading XGBoost: {e}", file=sys.stderr)
 
-# LSTM will be loaded on first use via load_lstm_and_predict()
 print("API ready.", file=sys.stderr)
 
 
@@ -103,7 +101,6 @@ def predict():
     except Exception as e:
         return jsonify({"error": f"XGBoost prediction failed: {e}"}), 500
 
-    lstm_result = load_lstm_and_predict(full_matrix)
 
     # ----------------------------------------------------------------------
     # 5. Build response with explicit type conversion
@@ -123,15 +120,8 @@ def predict():
                 }
                 for name, imp in xgb_result["top_features"]
             ]
-        },
-        "lstm": None
-    }
-
-    if lstm_result:
-        response["lstm"] = {
-            "direction": str(lstm_result["direction"]),
-            "confidence": float(lstm_result["confidence"])
         }
+    }
 
     return jsonify(response)
 
