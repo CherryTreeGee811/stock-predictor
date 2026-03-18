@@ -7,8 +7,6 @@ import os
 import sys
 from datetime import datetime
 
-import numpy as np
-import pandas as pd
 import yaml
 
 # ---------------------------------------------------------------------------
@@ -24,7 +22,6 @@ from features.technical_indicators import compute_indicators
 from models.predict import (
     predict_xgboost,
     get_feature_columns,
-    load_lstm_and_predict,
 )
 
 _CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config.yaml")
@@ -84,13 +81,11 @@ def run_prediction(ticker: str) -> None:
         print(f"  ERROR: {e}")
         return
 
-    lstm_result = load_lstm_and_predict(full_matrix)
-
     # Print results (sentiment section removed)
-    _print_results(ticker, today_str, current_close, xgb_result, lstm_result)
+    _print_results(ticker, today_str, current_close, xgb_result)
 
 
-def _print_results(ticker, today, current_close, xgb, lstm):
+def _print_results(ticker, today, current_close, xgb):
     """Print a clean, readable CLI summary (no sentiment)."""
     arrow_xgb = "▲" if xgb["direction"] == "UP" else "▼"
 
@@ -107,17 +102,6 @@ def _print_results(ticker, today, current_close, xgb, lstm):
      Direction            : {arrow_xgb} {xgb['direction']}
      Confidence           : {xgb['confidence']:.1f}%
      Predicted Next Close : ${xgb['price']:,.2f}""")
-
-    if lstm:
-        arrow_lstm = "▲" if lstm["direction"] == "UP" else "▼"
-        print(f"""
-  ── LSTM Prediction ───────────────────────────────────
-     Direction            : {arrow_lstm} {lstm['direction']}
-     Confidence           : {lstm['confidence']:.1f}%""")
-    else:
-        print("""
-  ── LSTM Prediction ───────────────────────────────────
-     (LSTM model not available — skipped)""")
 
     print(f"""
   ── Top Features Driving Prediction ───────────────────""")
