@@ -19,7 +19,6 @@ data:
   # Default tickers used for training the generalized model.
   training_tickers:
     - "AAPL"
-    - "MSFT"
     - "GOOGL"
 
 # ------ Technical Indicators ------
@@ -54,19 +53,6 @@ xgboost:
     max_depth: [3]
     learning_rate: [0.01]
   cv_folds: 5
-
-# ------ Model: LSTM ------
-lstm:
-  sequence_length: 30       # Number of past trading days per sample
-  lstm_units_1: 64
-  lstm_units_2: 32
-  dropout_rate: 0.2
-  dense_units: 16
-  epochs: 30
-  batch_size: 128
-  early_stopping_patience: 10
-  optimizer: "adam"
-  loss: "binary_crossentropy"
 
 # ------ Scaling ------
 scaling:
