@@ -5,13 +5,6 @@ services:
     container_name: stock-predictor
     ports:
       - "5000:5000"
-    volumes:
-      - model-data:/app/models/saved
     environment:
       - FLASK_ENV=production
     restart: unless-stopped
-
-volumes:
-  model-data:
-    name: modeldata
-    driver: local
