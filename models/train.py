@@ -29,7 +29,8 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_THIS_DIR)
 _CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config.yaml")
 _DATASET_PATH = os.path.join(_PROJECT_ROOT, "data", "cache", "training_dataset.csv")
 
