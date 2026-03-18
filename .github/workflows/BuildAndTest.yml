@@ -59,7 +59,9 @@ jobs:
         else
           echo "❌ /predict returned $HTTP_STATUS"
           docker logs "$(docker ps -q --filter 'name=stock-predictor')" 2>&1 | tail -50
-          docker exec -it stock-predictor ls ./app
+          docker exec stock-predictor ls -la /app/models/saved/ || echo "Directory not found"
+          docker exec stock-predictor ls -la /app
+          docker exec stock-predictor ls -la /app/models
           exit 1
         fi
         
