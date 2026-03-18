@@ -16,9 +16,9 @@ jobs:
     - name: Run Application
       shell: bash
       run: 
-        docker compose up -d && ls
+        docker compose up -d
 
-    - name: Run Application
+    - name: List Directories
       shell: bash
       run: 
         ls -la
@@ -53,6 +53,8 @@ jobs:
           echo "✅ /predict returned 200 OK"
         else
           echo "❌ /predict returned $HTTP_STATUS"
+          cat "$RESPONSE_BODY"
+          docker logs "$(docker ps -q --filter 'name=stock-predictor')" 2>&1 | tail -50
           exit 1
         fi
         
