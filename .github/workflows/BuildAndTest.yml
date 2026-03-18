@@ -16,8 +16,7 @@ jobs:
     - name: Run Application
       shell: bash
       run: 
-        docker compose up -d
-        ls -la
+        docker compose up -d && ls
 
     - name: Run Application
       shell: bash
