@@ -4,6 +4,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN python run_pipeline.py
+RUN python models/train.py
 
 FROM python:3.13-slim-trixie AS final
 WORKDIR /app
