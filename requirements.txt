@@ -12,9 +12,6 @@ numpy
 scikit-learn
 xgboost
 
-# --- Deep learning (LSTM) ---
-tensorflow
-
 # --- Configuration ---
 pyyaml
 
