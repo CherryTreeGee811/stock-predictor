@@ -17,6 +17,12 @@ jobs:
       shell: bash
       run: 
         docker compose up -d
+        ls -la
+
+    - name: Run Application
+      shell: bash
+      run: 
+        ls -la
 
     - name: Wait for API and perform health check
       shell: bash
