@@ -23,8 +23,6 @@ from sklearn.metrics import (
     confusion_matrix, mean_absolute_error, mean_squared_error,
 )
 
-from tensorflow.keras.models import load_model
-
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # ---------------------------------------------------------------------------
@@ -184,32 +182,6 @@ def evaluate_all():
     y_pred_xgb_reg = test_close * (1 + y_pred_pct / 100)
     reg_metrics = _regression_metrics(
         y_test_reg, y_pred_xgb_reg, "XGBoost Regressor")
-
-    # =================================================================
-    # Model 3 — LSTM
-    # =================================================================
-    print("=" * 60)
-    print("[evaluate] Model 3 — LSTM")
-    print("=" * 60)
-
-    lstm_cfg = cfg["lstm"]
-    seq_len = lstm_cfg["sequence_length"]
-
-    lstm_model = load_model(os.path.join(save_dir, "lstm_model.h5"))
-    lstm_scaler = _load_artifact("lstm_scaler.pkl", save_dir)
-
-    X_test_lstm = lstm_scaler.transform(X_test)
-    X_test_seq, y_test_seq = _create_sequences(X_test_lstm, y_test_cls, seq_len)
-
-    if len(X_test_seq) > 0:
-        y_pred_lstm_prob = lstm_model.predict(X_test_seq, verbose=0).flatten()
-        y_pred_lstm = (y_pred_lstm_prob >= 0.5).astype(int)
-
-        all_metrics["LSTM"] = _classification_metrics(
-            y_test_seq, y_pred_lstm, "LSTM")
-    else:
-        print("  WARNING: Not enough test data to form LSTM sequences.")
-        all_metrics["LSTM"] = {}
 
     # =================================================================
     # Print final summary

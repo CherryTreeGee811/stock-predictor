@@ -4,7 +4,6 @@ Train all models and save them to models/saved/.
 Models trained:
   1. Logistic Regression (classification baseline)
   2. XGBoost Classifier + XGBoost Regressor (primary model)
-  3. LSTM Neural Network (deep learning model)
 
 All scalers are fit on training data only and saved alongside the models.
 Data is split chronologically (80/10/10) — never shuffled.
@@ -15,21 +14,15 @@ import sys
 import warnings
 import pickle
 
-import numpy as np
 import pandas as pd
 import yaml
 
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.metrics import accuracy_score
-from sklearn.utils.class_weight import compute_class_weight
 
 from xgboost import XGBClassifier, XGBRegressor
-
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.callbacks import EarlyStopping
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -230,114 +223,6 @@ def train_xgboost(X_train, y_train_cls, y_train_reg,
 
 
 # ---------------------------------------------------------------------------
-# Model 3 — LSTM
-# ---------------------------------------------------------------------------
-
-def _create_sequences(X: np.ndarray, y: np.ndarray, seq_len: int):
-    """
-    Reshape flat feature arrays into overlapping sequences.
-
-    Returns
-    -------
-    X_seq : np.ndarray, shape (samples, seq_len, n_features)
-    y_seq : np.ndarray, shape (samples,)
-    """
-    X_seq, y_seq = [], []
-    for i in range(seq_len, len(X)):
-        X_seq.append(X[i - seq_len: i])
-        y_seq.append(y[i])
-    return np.array(X_seq), np.array(y_seq)
-
-
-def train_lstm(X_train, y_train, X_val, y_val,
-               cfg, save_dir) -> dict:
-    print("\n" + "=" * 60)
-    print("[train] Model 3 — LSTM Neural Network")
-    print("=" * 60)
-
-    lstm_cfg = cfg["lstm"]
-    scale_cfg = cfg["scaling"]
-    seq_len = lstm_cfg["sequence_length"]
-
-    # MinMaxScaler — fit on training data only
-    feature_range = tuple(scale_cfg["minmax_feature_range"])
-    scaler = MinMaxScaler(feature_range=feature_range)
-    X_train_sc = scaler.fit_transform(X_train)
-    X_val_sc = scaler.transform(X_val)
-
-    # Create sequences
-    X_train_seq, y_train_seq = _create_sequences(X_train_sc, y_train, seq_len)
-    X_val_seq, y_val_seq = _create_sequences(X_val_sc, y_val, seq_len)
-
-    print(f"  Sequence shape — train: {X_train_seq.shape}, val: {X_val_seq.shape}")
-
-    if len(X_train_seq) == 0:
-        print("  ERROR: Not enough training data to form sequences.")
-        return {}
-
-    # Compute class weights to handle class imbalance
-    classes = np.unique(y_train_seq)
-    weights = compute_class_weight("balanced", classes=classes, y=y_train_seq)
-    class_weight_dict = dict(zip(classes.astype(int), weights))
-    print(f"  Class weights: {class_weight_dict}")
-
-    n_features = X_train_seq.shape[2]
-
-    # Build model
-    model = Sequential([
-        LSTM(lstm_cfg["lstm_units_1"], return_sequences=True,
-             input_shape=(seq_len, n_features)),
-        Dropout(lstm_cfg["dropout_rate"]),
-        LSTM(lstm_cfg["lstm_units_2"], return_sequences=False),
-        Dropout(lstm_cfg["dropout_rate"]),
-        Dense(lstm_cfg["dense_units"], activation="relu"),
-        Dense(1, activation="sigmoid"),
-    ])
-
-    model.compile(
-        optimizer=lstm_cfg["optimizer"],
-        loss=lstm_cfg["loss"],
-        metrics=["accuracy"],
-    )
-    model.summary()
-
-    early_stop = EarlyStopping(
-        monitor="val_loss",
-        patience=lstm_cfg["early_stopping_patience"],
-        restore_best_weights=True,
-        verbose=1,
-    )
-
-    history = model.fit(
-        X_train_seq, y_train_seq,
-        validation_data=(X_val_seq, y_val_seq),
-        epochs=lstm_cfg["epochs"],
-        batch_size=lstm_cfg["batch_size"],
-        callbacks=[early_stop],
-        class_weight=class_weight_dict,
-        verbose=1,
-    )
-
-    # Accuracy
-    train_acc = max(history.history["accuracy"])
-    val_acc = max(history.history["val_accuracy"])
-    print(f"  Best train accuracy: {train_acc:.4f}")
-    print(f"  Best val   accuracy: {val_acc:.4f}")
-
-    # Save
-    os.makedirs(save_dir, exist_ok=True)
-    model_path = os.path.join(save_dir, "lstm_model.h5")
-    model.save(model_path)
-    print(f"  Saved → {model_path}")
-    _save_artifact(scaler, "lstm_scaler.pkl", save_dir)
-
-    return {
-        "model": model, "scaler": scaler, "history": history,
-        "train_acc": train_acc, "val_acc": val_acc,
-    }
-
-
-# ---------------------------------------------------------------------------
 # Main training orchestrator
 # ---------------------------------------------------------------------------
 
@@ -382,10 +267,6 @@ def train_all() -> dict:
         X_train, y_train_cls, y_train_reg,
         X_val, y_val_cls, y_val_reg,
         cfg, save_dir)
-
-    # --- Model 3: LSTM ---
-    results["lstm"] = train_lstm(
-        X_train, y_train_cls, X_val, y_val_cls, cfg, save_dir)
 
     # --- Summary table ---
     print("\n" + "=" * 60)

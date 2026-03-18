@@ -3,7 +3,6 @@ Load saved models and return predictions for a given ticker.
 
 Primary interface:
     predict_xgboost(feature_vector)  → direction, confidence, price, top features
-    predict_lstm(sequence_array)     → direction, confidence
 
 Both functions load models lazily on first call and cache them in memory.
 """
@@ -65,26 +64,7 @@ def _ensure_xgboost_loaded():
     _cache["xgb_reg"] = _load_artifact("xgboost_regressor.pkl", save_dir)
     _cache["xgb_scaler"] = _load_artifact("xgboost_scaler.pkl", save_dir)
     _cache["feature_cols"] = _load_artifact("feature_columns.pkl", save_dir)
-
-
-def _ensure_lstm_loaded():
-    """Load LSTM model and scaler once."""
-    if "lstm_model" in _cache:
-        return
-    save_dir = _get_save_dir()
-
-    # TensorFlow import deferred to keep startup fast when not needed
-    from tensorflow.keras.models import load_model
-
-    model_path = os.path.join(save_dir, "lstm_model.h5")
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(
-            f"LSTM model not found: {model_path}\n"
-            "Have you run  python models/train.py  yet?"
-        )
-    _cache["lstm_model"] = load_model(model_path)
-    _cache["lstm_scaler"] = _load_artifact("lstm_scaler.pkl", save_dir)
-
+    
 
 # ---------------------------------------------------------------------------
 # Public API — XGBoost
@@ -162,81 +142,6 @@ def predict_xgboost(feature_vector: np.ndarray,
 
 
 # ---------------------------------------------------------------------------
-# Public API — LSTM
-# ---------------------------------------------------------------------------
-
-def predict_lstm(sequence_array: np.ndarray) -> dict:
-    """
-    Run LSTM prediction on a pre-built sequence.
-
-    Parameters
-    ----------
-    sequence_array : np.ndarray, shape (1, seq_len, n_features) or
-                     (seq_len, n_features).
-        Already scaled with MinMaxScaler.
-
-    Returns
-    -------
-    dict with keys:
-        direction  : str   — "UP" or "DOWN"
-        confidence : float — probability (0–100 %)
-    """
-    _ensure_lstm_loaded()
-
-    model = _cache["lstm_model"]
-
-    X = np.asarray(sequence_array)
-    if X.ndim == 2:
-        X = X[np.newaxis, ...]  # add batch dim
-
-    prob = float(model.predict(X, verbose=0)[0][0])
-    direction = "UP" if prob >= 0.5 else "DOWN"
-    confidence = (prob if prob >= 0.5 else 1 - prob) * 100
-
-    return {
-        "direction": direction,
-        "confidence": round(confidence, 2),
-    }
-
-
-def load_lstm_and_predict(feature_matrix: np.ndarray) -> dict | None:
-    """
-    Convenience wrapper: scale features, build sequence, predict.
-
-    Parameters
-    ----------
-    feature_matrix : np.ndarray, shape (n_days, n_features)
-        Raw (unscaled) feature values for the most recent days.
-        Must have at least *sequence_length* rows.
-
-    Returns
-    -------
-    dict or None if the model is unavailable or data is insufficient.
-    """
-    cfg = _load_config()
-    seq_len = cfg["lstm"]["sequence_length"]
-
-    try:
-        _ensure_lstm_loaded()
-    except FileNotFoundError as e:
-        print(f"[predict] LSTM unavailable: {e}")
-        return None
-
-    scaler = _cache["lstm_scaler"]
-
-    if len(feature_matrix) < seq_len:
-        print(f"[predict] Need {seq_len} days for LSTM but only have "
-              f"{len(feature_matrix)}.")
-        return None
-
-    # Scale and take the last seq_len days
-    X_sc = scaler.transform(feature_matrix)
-    seq = X_sc[-seq_len:]
-
-    return predict_lstm(seq)
-
-
-# ---------------------------------------------------------------------------
 # CLI test
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -245,11 +150,5 @@ if __name__ == "__main__":
         cols = get_feature_columns()
         print(f"  Feature columns ({len(cols)}): {cols[:5]}…")
         print("  XGBoost models loaded OK.")
-    except FileNotFoundError as e:
-        print(f"  {e}")
-
-    try:
-        _ensure_lstm_loaded()
-        print("  LSTM model loaded OK.")
     except FileNotFoundError as e:
         print(f"  {e}")
