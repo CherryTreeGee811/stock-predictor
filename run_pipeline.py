@@ -13,8 +13,7 @@ import yaml
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-_PROJECT_ROOT = os.path.dirname(_THIS_DIR)
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 _CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config.yaml")
 _CACHE_DIR = os.path.join(_PROJECT_ROOT, "data", "cache")
 
