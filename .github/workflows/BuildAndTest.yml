@@ -13,6 +13,11 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
+    - name: Build Application
+      shell: bash
+      run: 
+        docker-compose build
+
     - name: Run Application
       shell: bash
       run: 
@@ -54,7 +59,7 @@ jobs:
         else
           echo "❌ /predict returned $HTTP_STATUS"
           docker logs "$(docker ps -q --filter 'name=stock-predictor')" 2>&1 | tail -50
-          echo "$RESPONSE_BODY"
+          docker exec -it stock-predictor ls ./app
           exit 1
         fi
         
