@@ -16,7 +16,7 @@ jobs:
     - name: Build Application
       shell: bash
       run: 
-        docker-compose build
+        docker compose build
 
     - name: Run Application
       shell: bash
