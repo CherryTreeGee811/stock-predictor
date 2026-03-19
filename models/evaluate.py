@@ -13,6 +13,7 @@ import os
 import sys
 import pickle
 import warnings
+import joblib
 
 import numpy as np
 import pandas as pd
@@ -42,10 +43,14 @@ def _load_config() -> dict:
 
 
 def _load_artifact(filename: str, save_dir: str):
-    """Un-pickle an object from save_dir/filename."""
+    """Load an artifact using joblib (supports both pickle and joblib formats)."""
     path = os.path.join(save_dir, filename)
-    with open(path, "rb") as f:
-        return pickle.load(f)
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"Model artifact not found: {path}\n"
+            "Have you run  python models/train.py  yet?"
+        )
+    return joblib.load(path)
 
 
 # ---------------------------------------------------------------------------
@@ -102,18 +107,6 @@ def _regression_metrics(y_true, y_pred, model_name: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Sequence builder (same logic as in train.py — kept here to be self-contained)
-# ---------------------------------------------------------------------------
-
-def _create_sequences(X: np.ndarray, y: np.ndarray, seq_len: int):
-    X_seq, y_seq = [], []
-    for i in range(seq_len, len(X)):
-        X_seq.append(X[i - seq_len: i])
-        y_seq.append(y[i])
-    return np.array(X_seq), np.array(y_seq)
-
-
-# ---------------------------------------------------------------------------
 # Main evaluation orchestrator
 # ---------------------------------------------------------------------------
 
@@ -151,7 +144,7 @@ def evaluate_all():
     print("=" * 60)
 
     lr_model = _load_artifact("logistic_regression.pkl", save_dir)
-    lr_scaler = _load_artifact("logistic_regression_scaler.pkl", save_dir)
+    lr_scaler = _load_artifact("logistic_scaler.pkl", save_dir)
 
     X_test_lr = lr_scaler.transform(X_test)
     y_pred_lr = lr_model.predict(X_test_lr)
