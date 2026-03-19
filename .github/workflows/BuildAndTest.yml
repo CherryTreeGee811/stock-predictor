@@ -64,11 +64,16 @@ jobs:
           docker exec stock-predictor ls -la /app/models
           exit 1
         fi
-        
-    - name: Push Docker Images to DockerHub
-      if: ${{ github.ref == 'refs/heads/stable' }}
+    
+    - name: Stop and Remove API Container
       shell: bash
       run: |
-        docker tag stockpredictor cherrytree811/stock-predictor:latest
+        docker rm -f stock-predictor
+
+    - name: Push Docker Images to DockerHub
+      if: ${{ github.ref == 'refs/heads/main' }}
+      shell: bash
+      run: |
+        docker tag stock-predictor cherrytree811/stock-predictor:latest
         docker login -u cherrytree811 -p ${{ secrets.DOCKER_CRED }}
         docker push cherrytree811/stock-predictor:latest
