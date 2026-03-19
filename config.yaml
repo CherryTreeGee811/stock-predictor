@@ -65,7 +65,5 @@ scaling:
 output:
   # Directory for saved models and scalers
   model_save_dir: "models/saved"
-  # Directory for generated charts
-  chart_save_dir: "models/charts"
   # Number of top features to show in prediction output
   top_features_to_display: 3
