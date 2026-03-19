@@ -109,14 +109,11 @@ def _regression_metrics(y_true, y_pred, model_name: str) -> dict:
 # ---------------------------------------------------------------------------
 # Main evaluation orchestrator
 # ---------------------------------------------------------------------------
-
 def evaluate_all():
     """Load saved models, evaluate on test set, and generate charts."""
     cfg = _load_config()
     save_dir = os.path.join(_PROJECT_ROOT, cfg["output"]["model_save_dir"])
-    chart_dir = os.path.join(_PROJECT_ROOT, cfg["output"]["chart_save_dir"])
-    os.makedirs(chart_dir, exist_ok=True)
-
+  
     # --- Load test set and feature columns ---
     test_df = pd.read_csv(
         os.path.join(save_dir, "test_set.csv"),
