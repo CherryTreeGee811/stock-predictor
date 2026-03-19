@@ -3,7 +3,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-RUN python run_pipeline.py
+RUN python features/build_dataset.py
+RUN python models/train.py
+# We are evaluating the models so we can see how they perform in the pipeline; 
+# the results will not be deployed.
+RUN python models/evaluate.py
 
 FROM python:3.13-slim-trixie AS final
 WORKDIR /app
