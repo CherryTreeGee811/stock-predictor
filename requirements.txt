@@ -17,3 +17,6 @@ pyyaml
 
 # --- API ---
 flask
+
+# --- ML Flow Tracking ---
+mlflow
