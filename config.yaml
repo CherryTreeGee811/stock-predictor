@@ -13,9 +13,6 @@ data:
   # "max" fetches everything available for the ticker.
   training_history_period: "max"
 
-  # NewsAPI: number of past days of headlines to fetch for prediction.
-  news_lookback_days: 7
-
   # Default tickers used for training the generalized model.
   training_tickers:
     - "AAPL"
@@ -65,7 +62,5 @@ scaling:
 output:
   # Directory for saved models and scalers
   model_save_dir: "models/saved"
-  # Directory for generated charts
-  chart_save_dir: "models/charts"
   # Number of top features to show in prediction output
   top_features_to_display: 3

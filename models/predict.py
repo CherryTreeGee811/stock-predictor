@@ -4,7 +4,7 @@ Load saved models and return predictions for a given ticker.
 Primary interface:
     predict_xgboost(feature_vector)  → direction, confidence, price, top features
 
-Both functions load models lazily on first call and cache them in memory.
+Models are loaded lazily and cached.
 """
 
 import os
@@ -14,12 +14,16 @@ import warnings
 
 import numpy as np
 import yaml
+import mlflow
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # ---------------------------------------------------------------------------
-# Paths
+# Paths & MLflow setup
 # ---------------------------------------------------------------------------
+# Set tracking URI (will be overridden by environment variable in production)
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "file:./mlruns"))
+
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_THIS_DIR)
 _CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config.yaml")
@@ -34,6 +38,7 @@ def _load_config() -> dict:
 
 
 def _load_artifact(filename: str, save_dir: str):
+    """Load a pickle file from the given directory."""
     path = os.path.join(save_dir, filename)
     if not os.path.exists(path):
         raise FileNotFoundError(
@@ -56,15 +61,21 @@ def _get_save_dir() -> str:
 
 
 def _ensure_xgboost_loaded():
-    """Load XGBoost classifier, regressor, scaler, and feature columns once."""
+    """
+    Load XGBoost classifier, regressor, scaler, and feature columns.
+    All are loaded from local pickle files (not MLflow registry) to avoid path issues.
+    """
     if "xgb_clf" in _cache:
         return
+
     save_dir = _get_save_dir()
+
+    # Load classifier, regressor, scaler, and feature columns from local files
     _cache["xgb_clf"] = _load_artifact("xgboost_classifier.pkl", save_dir)
     _cache["xgb_reg"] = _load_artifact("xgboost_regressor.pkl", save_dir)
     _cache["xgb_scaler"] = _load_artifact("xgboost_scaler.pkl", save_dir)
     _cache["feature_cols"] = _load_artifact("feature_columns.pkl", save_dir)
-    
+
 
 # ---------------------------------------------------------------------------
 # Public API — XGBoost
@@ -150,5 +161,5 @@ if __name__ == "__main__":
         cols = get_feature_columns()
         print(f"  Feature columns ({len(cols)}): {cols[:5]}…")
         print("  XGBoost models loaded OK.")
-    except FileNotFoundError as e:
-        print(f"  {e}")
+    except Exception as e:
+        print(f"  ERROR: {e}")

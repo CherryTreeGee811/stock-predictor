@@ -7,27 +7,36 @@ Models trained:
 
 All scalers are fit on training data only and saved alongside the models.
 Data is split chronologically (80/10/10) — never shuffled.
+
+All training runs are logged with MLflow.
 """
 
 import os
 import sys
 import warnings
 import pickle
+import joblib
 
 import pandas as pd
 import yaml
+import numpy as np
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+import mlflow
+import mlflow.sklearn
+import mlflow.xgboost
+from mlflow.models.signature import infer_signature
 
 from xgboost import XGBClassifier, XGBRegressor
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # ---------------------------------------------------------------------------
-# Paths
+# Paths & MLflow setup
 # ---------------------------------------------------------------------------
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_THIS_DIR)
@@ -36,6 +45,9 @@ _DATASET_PATH = os.path.join(_PROJECT_ROOT, "data", "cache", "training_dataset.c
 
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
+
+# Set MLflow tracking URI (can be overridden by env)
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "file:./mlruns"))
 
 
 def _load_config() -> dict:
@@ -107,37 +119,84 @@ def _save_artifact(obj, filename: str, save_dir: str) -> str:
 # ---------------------------------------------------------------------------
 
 def train_logistic_regression(X_train, y_train, X_val, y_val,
-                              cfg, save_dir) -> dict:
+                              feature_cols, cfg, save_dir):
+    """
+    Train Logistic Regression with hyperparameter tuning.
+    Logs everything to MLflow and saves the best model locally.
+    """
     print("\n" + "=" * 60)
     print("[train] Model 1 — Logistic Regression")
     print("=" * 60)
 
-    lr_cfg = cfg["logistic_regression"]
-
-    # Scaler
+    # Scale features for logistic regression
     scaler = StandardScaler()
     X_train_sc = scaler.fit_transform(X_train)
     X_val_sc = scaler.transform(X_val)
 
-    # Train
-    model = LogisticRegression(
-        max_iter=lr_cfg["max_iter"],
-        random_state=lr_cfg["random_state"],
-    )
-    model.fit(X_train_sc, y_train)
+    # Hyperparameter grid from config (or define here)
+    param_grid = {
+        'C': [0.01, 0.1, 1, 10],
+        'solver': ['lbfgs', 'liblinear'],
+        'penalty': ['l2']
+    }
 
-    # Accuracy
-    train_acc = accuracy_score(y_train, model.predict(X_train_sc))
-    val_acc = accuracy_score(y_val, model.predict(X_val_sc))
-    print(f"  Train accuracy: {train_acc:.4f}")
-    print(f"  Val   accuracy: {val_acc:.4f}")
+    lr = LogisticRegression(max_iter=1000, random_state=42)
 
-    # Save
-    _save_artifact(model, "logistic_regression.pkl", save_dir)
-    _save_artifact(scaler, "logistic_regression_scaler.pkl", save_dir)
+    # Use TimeSeriesSplit for chronological cross‑validation
+    tscv = TimeSeriesSplit(n_splits=5)
+    grid = GridSearchCV(lr, param_grid, cv=tscv, scoring='accuracy', n_jobs=-1)
+    grid.fit(X_train_sc, y_train)
 
-    return {"model": model, "scaler": scaler,
-            "train_acc": train_acc, "val_acc": val_acc}
+    best_lr = grid.best_estimator_
+    best_params = grid.best_params_
+    cv_acc = grid.best_score_
+
+    # Evaluate on validation set
+    y_pred_val = best_lr.predict(X_val_sc)
+    val_acc = accuracy_score(y_val, y_pred_val)
+    val_prec = precision_score(y_val, y_pred_val, zero_division=0)
+    val_rec = recall_score(y_val, y_pred_val, zero_division=0)
+    val_f1 = f1_score(y_val, y_pred_val, zero_division=0)
+
+    print(f"  Best params: {best_params}")
+    print(f"  CV accuracy: {cv_acc:.4f}")
+    print(f"  Val accuracy: {val_acc:.4f}")
+
+    # Log to MLflow
+    with mlflow.start_run(run_name="LogisticRegression", nested=True):
+        mlflow.log_params(best_params)
+        mlflow.log_metrics({
+            "cv_accuracy": cv_acc,
+            "val_accuracy": val_acc,
+            "val_precision": val_prec,
+            "val_recall": val_rec,
+            "val_f1": val_f1
+        })
+
+        # Log the scaler as an artifact
+        scaler_path = os.path.join(save_dir, "logistic_scaler.pkl")
+        joblib.dump(scaler, scaler_path)
+        mlflow.log_artifact(scaler_path)
+
+        # Log the model with signature
+        signature = infer_signature(X_train_sc, best_lr.predict(X_train_sc))
+        mlflow.sklearn.log_model(
+            best_lr,
+            "logistic_model",
+            signature=signature,
+            input_example=X_train_sc[:5]
+        )
+
+    # Save locally for compatibility
+    joblib.dump(best_lr, os.path.join(save_dir, "logistic_regression.pkl"))
+    _save_artifact(scaler, "logistic_scaler.pkl", save_dir)
+
+    return {
+        "model": best_lr,
+        "scaler": scaler,
+        "best_params": best_params,
+        "val_acc": val_acc
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +205,7 @@ def train_logistic_regression(X_train, y_train, X_val, y_val,
 
 def train_xgboost(X_train, y_train_cls, y_train_reg,
                   X_val, y_val_cls, y_val_reg,
-                  cfg, save_dir) -> dict:
+                  feature_cols, cfg, save_dir) -> dict:
     print("\n" + "=" * 60)
     print("[train] Model 2 — XGBoost (Classifier + Regressor)")
     print("=" * 60)
@@ -154,26 +213,25 @@ def train_xgboost(X_train, y_train_cls, y_train_reg,
     xgb_cfg = cfg["xgboost"]
     gs = xgb_cfg["grid_search"]
 
-    # Scaler (same for classifier + regressor)
+    # Scale features (optional for tree models, but we keep it)
     scaler = StandardScaler()
     X_train_sc = scaler.fit_transform(X_train)
     X_val_sc = scaler.transform(X_val)
 
-    # --- Classifier with GridSearchCV + TimeSeriesSplit ---
-    print("  Running GridSearchCV (TimeSeriesSplit) for XGBClassifier…")
-
-    # Compute scale_pos_weight to handle class imbalance
+    # Compute scale_pos_weight for class imbalance
     n_down = int((y_train_cls == 0).sum())
     n_up = int((y_train_cls == 1).sum())
     spw = n_down / max(n_up, 1)
     print(f"  Class balance — DOWN: {n_down}, UP: {n_up}, "
           f"scale_pos_weight: {spw:.4f}")
 
+    # --- Classifier with GridSearchCV + TimeSeriesSplit ---
     base_clf = XGBClassifier(
         random_state=xgb_cfg["random_state"],
         eval_metric="logloss",
         scale_pos_weight=spw,
         verbosity=0,
+        use_label_encoder=False
     )
     param_grid = {
         "n_estimators": gs["n_estimators"],
@@ -191,34 +249,82 @@ def train_xgboost(X_train, y_train_cls, y_train_reg,
     grid.fit(X_train_sc, y_train_cls)
 
     best_clf = grid.best_estimator_
-    print(f"  Best params: {grid.best_params_}")
+    best_params = grid.best_params_
+    cv_acc = grid.best_score_
 
-    train_acc = accuracy_score(y_train_cls, best_clf.predict(X_train_sc))
-    val_acc = accuracy_score(y_val_cls, best_clf.predict(X_val_sc))
-    print(f"  Classifier train accuracy: {train_acc:.4f}")
-    print(f"  Classifier val   accuracy: {val_acc:.4f}")
+    # Evaluate classifier on validation set
+    y_pred_val_cls = best_clf.predict(X_val_sc)
+    val_acc = accuracy_score(y_val_cls, y_pred_val_cls)
+    val_prec = precision_score(y_val_cls, y_pred_val_cls, zero_division=0)
+    val_rec = recall_score(y_val_cls, y_pred_val_cls, zero_division=0)
+    val_f1 = f1_score(y_val_cls, y_pred_val_cls, zero_division=0)
 
-    # --- Regressor (re-use best depth & estimators from classifier) ---
+    print(f"  Best params: {best_params}")
+    print(f"  Classifier CV accuracy: {cv_acc:.4f}")
+    print(f"  Classifier val accuracy: {val_acc:.4f}")
+
+    # --- Regressor (re‑use best depth & estimators from classifier) ---
     print("  Training XGBRegressor…")
-    best_p = grid.best_params_
     regressor = XGBRegressor(
-        n_estimators=best_p["n_estimators"],
-        max_depth=best_p["max_depth"],
-        learning_rate=best_p["learning_rate"],
+        n_estimators=best_params["n_estimators"],
+        max_depth=best_params["max_depth"],
+        learning_rate=best_params["learning_rate"],
         random_state=xgb_cfg["random_state"],
         verbosity=0,
     )
     regressor.fit(X_train_sc, y_train_reg)
 
-    # Save
+    # Save locally
     _save_artifact(best_clf, "xgboost_classifier.pkl", save_dir)
     _save_artifact(regressor, "xgboost_regressor.pkl", save_dir)
     _save_artifact(scaler, "xgboost_scaler.pkl", save_dir)
 
+    # --- MLflow logging ---
+    with mlflow.start_run(run_name="XGBoost", nested=True):
+        # Log parameters
+        mlflow.log_params(best_params)
+        mlflow.log_metrics({
+            "cv_accuracy": cv_acc,
+            "val_accuracy": val_acc,
+            "val_precision": val_prec,
+            "val_recall": val_rec,
+            "val_f1": val_f1
+        })
+
+        # Log scaler as artifact
+        scaler_path = os.path.join(save_dir, "xgboost_scaler.pkl")
+        mlflow.log_artifact(scaler_path)
+
+        # Log classifier with signature
+        signature_clf = infer_signature(X_train_sc, best_clf.predict(X_train_sc))
+        mlflow.xgboost.log_model(
+            best_clf,
+            "xgboost_classifier",
+            signature=signature_clf,
+            input_example=X_train_sc[:5]
+        )
+
+        # Log regressor (optional) – we might not need it in the registry
+        signature_reg = infer_signature(X_train_sc, regressor.predict(X_train_sc))
+        mlflow.xgboost.log_model(
+            regressor,
+            "xgboost_regressor",
+            signature=signature_reg,
+            input_example=X_train_sc[:5]
+        )
+
+        # Register the classifier as the primary model
+        mlflow.register_model(
+            f"runs:/{mlflow.active_run().info.run_id}/xgboost_classifier",
+            "stock_direction_predictor"
+        )
+
     return {
-        "classifier": best_clf, "regressor": regressor, "scaler": scaler,
-        "best_params": grid.best_params_,
-        "train_acc": train_acc, "val_acc": val_acc,
+        "classifier": best_clf,
+        "regressor": regressor,
+        "scaler": scaler,
+        "best_params": best_params,
+        "val_acc": val_acc,
     }
 
 
@@ -230,6 +336,7 @@ def train_all() -> dict:
     """Train all models and return a results dict."""
     cfg = _load_config()
     save_dir = os.path.join(_PROJECT_ROOT, cfg["output"]["model_save_dir"])
+    os.makedirs(save_dir, exist_ok=True)
 
     # --- Load data ---
     print("[train] Loading training dataset…")
@@ -244,13 +351,13 @@ def train_all() -> dict:
 
     X_train = train_df[feature_cols].values
     y_train_cls = train_df["Direction"].values
-    y_train_reg = train_df["Pct_Change"].values   # scale-independent target
+    y_train_reg = train_df["Pct_Change"].values   # scale‑independent target
 
     X_val = val_df[feature_cols].values
     y_val_cls = val_df["Direction"].values
-    y_val_reg = val_df["Pct_Change"].values        # scale-independent target
+    y_val_reg = val_df["Pct_Change"].values
 
-    # Save feature column list and test set info for evaluate.py
+    # Save feature column list and test set for evaluate.py
     _save_artifact(feature_cols, "feature_columns.pkl", save_dir)
     test_df.to_csv(os.path.join(save_dir, "test_set.csv"))
     val_df.to_csv(os.path.join(save_dir, "val_set.csv"))
@@ -258,27 +365,32 @@ def train_all() -> dict:
 
     results = {}
 
-    # --- Model 1: Logistic Regression ---
-    results["logistic"] = train_logistic_regression(
-        X_train, y_train_cls, X_val, y_val_cls, cfg, save_dir)
+    # Start a parent MLflow run for the whole training process
+    with mlflow.start_run(run_name="Training_Pipeline"):
 
-    # --- Model 2: XGBoost ---
-    results["xgboost"] = train_xgboost(
-        X_train, y_train_cls, y_train_reg,
-        X_val, y_val_cls, y_val_reg,
-        cfg, save_dir)
+        # --- Model 1: Logistic Regression ---
+        results["logistic"] = train_logistic_regression(
+            X_train, y_train_cls, X_val, y_val_cls,
+            feature_cols, cfg, save_dir
+        )
+
+        # --- Model 2: XGBoost ---
+        results["xgboost"] = train_xgboost(
+            X_train, y_train_cls, y_train_reg,
+            X_val, y_val_cls, y_val_reg,
+            feature_cols, cfg, save_dir
+        )
 
     # --- Summary table ---
     print("\n" + "=" * 60)
     print("  TRAINING SUMMARY")
     print("=" * 60)
-    print(f"  {'Model':<25} {'Train Acc':>10} {'Val Acc':>10}")
-    print(f"  {'-'*25} {'-'*10} {'-'*10}")
+    print(f"  {'Model':<25} {'Val Acc':>10}")
+    print(f"  {'-'*25} {'-'*10}")
     for name, res in results.items():
         if res:
-            ta = res.get("train_acc", 0)
             va = res.get("val_acc", 0)
-            print(f"  {name:<25} {ta:>10.4f} {va:>10.4f}")
+            print(f"  {name:<25} {va:>10.4f}")
     print("=" * 60)
 
     return results

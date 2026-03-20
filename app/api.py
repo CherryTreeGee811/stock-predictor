@@ -12,8 +12,6 @@ Then send GET request:
 import os
 import sys
 from datetime import datetime
-
-import pandas as pd
 from flask import Flask, request, jsonify
 
 # ---------------------------------------------------------------------------
